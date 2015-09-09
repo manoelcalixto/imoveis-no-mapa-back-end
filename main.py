@@ -29,7 +29,8 @@ def buscarImoveisPorGeoLocalizacao():
 	print (req_json)
 	results = imoveis.find({"$and":[
 		{"loc" : {"$within" : {"$box" : req_json['location']}}},
-		{"tipo" : {"$in": req_json['tipos']}}
+		{"tipo" : {"$in": req_json['tipos']}},
+		{"operacao" : req_json['operacao']}
 		]})
 
 	json_results = []
