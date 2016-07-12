@@ -1,10 +1,8 @@
 from bson import json_util
-from bson.objectid import ObjectId
 from pymongo import MongoClient
 from flask.ext.cors import CORS
 import json
-
-from flask import Flask, request, Response, render_template
+from flask import Flask, request, Response
 
 app = Flask(__name__)
 CORS(app)
@@ -15,111 +13,148 @@ imoveis = db.imoveis
 estados = db.estados
 cidades = db.cidades
 bairros = db.bairros
+tipos = db.tipos
+
 
 def toJson(data):
-	return json.dumps(data, default=json_util.default)
+    return json.dumps(data, default=json_util.default)
+
 
 @app.route('/buscarImoveisPorGeoLocalizacao', methods=['POST'])
 def buscarImoveisPorGeoLocalizacao():
-	req_json = request.get_json()
+    req_json = request.get_json()
 
-	results = imoveis.find({"$and":[
-		{"loc" : {"$within" : {"$box" : req_json['location']}}},
-		{"tipo" : {"$in": req_json['tipos']}},
-		{"operacao" : req_json['operacao']}
-		]})
+    box = [[req_json['northeastLatitude'], req_json['northeastLongitude']], [
+        req_json['southwestLatitude'], req_json['southwestLongitude']]]
 
-	json_results = []
-	for result in results:
-		json_results.append(result)
+    app.logger.info(req_json['operacao'])
 
-	resp = Response(
-		response=toJson(json_results), status=200, mimetype="application/json")
-	return resp
+    results = imoveis.find({"$and": [
+        {"loc": {"$within": {"$box": box}}},
+        {"operacao": req_json['operacao']}
+    ]})
+
+    json_results = []
+    for result in results:
+        json_results.append(result)
+
+    resp = Response(
+        response=toJson(json_results), status=200, mimetype="application/json")
+    return resp
+
 
 @app.route('/buscarImoveisPorFiltro', methods=['POST'])
 def buscarImoveisPorFiltro():
-	req_json = request.get_json()
-	query = []
+    req_json = request.get_json()
+    query = []
 
-	if 'operacao' in req_json:
-		query.append({"operacao": req_json['operacao']})
+    app.logger.info(req_json)
 
-	if 'tipo' in req_json:
-		if req_json['tipo'] == "Apartamento" or req_json['tipo'] == "Casa":
-			if 'quarto' in req_json:
-				if req_json['quarto'] > 0:
-					query.append({"quarto": {"$gte" : req_json['quarto']}})			
+    if 'operacao' in req_json:
+        query.append({"operacao": req_json['operacao']})
 
-	if 'bairro' in req_json:
-		query.append({"bairro": req_json['bairro']})
+    if 'tipo' in req_json:
+        if req_json['tipo'] == "Apartamento" or req_json['tipo'] == "Casa":
+            if 'quarto' in req_json:
+                if req_json['quarto'] > 0:
+                    query.append({"quarto": {"$gte": req_json['quarto']}})
 
-	if 'estado' in req_json:
-		query.append({"estado": req_json['estado']})
-	
-	if 'cidade' in req_json:
-		query.append({"cidade": req_json['cidade']})
+    if 'bairro' in req_json:
+        query.append({"bairro": req_json['bairro']})
 
-	if 'preco' in req_json:
-			query.append({"preco": {"$gte" : req_json['preco']}})
+    if 'estado' in req_json:
+        query.append({"estado": req_json['estado']})
 
-	if 'tipo' in req_json:
-		query.append({"tipo": req_json['tipo']})
+    if 'cidade' in req_json:
+        query.append({"cidade": req_json['cidade']})
 
-	results = imoveis.find({'$and': query})
+    if 'preco' in req_json:
+        query.append({"preco": {"$gte": req_json['preco']}})
 
-	json_results = []
-	for result in results:
-		json_results.append(result)
+    if 'tipo' in req_json:
+        query.append({"tipo": req_json['tipo']})
 
-	resp = Response(
-		response=toJson(json_results), status=200, mimetype="application/json")
-	return resp
+    app.logger.info(query)    
+
+    results = imoveis.find({'$and': query})
+
+    app.logger.info(results)
+
+    json_results = []
+    for result in results:
+        app.logger.info(result)
+        json_results.append(result)
+
+    resp = Response(
+        response=toJson(json_results), status=200, mimetype="application/json")
+    return resp
+
 
 @app.route('/buscarEstados', methods=['POST'])
 def buscarEstados():
-	req_json = request.get_json()
+    results = estados.find()
 
-	results = estados.find()
+    json_results = []
+    for result in results:
+        json_results.append(result)
 
-	json_results = []
-	for result in results:
-		json_results.append(result)
+    resp = Response(
+        response=toJson(json_results), status=200, mimetype="application/json")
 
-	resp = Response(
-		response=toJson(json_results), status=200, mimetype="application/json")
+    return resp
 
-	return resp
+@app.route('/buscarTipos', methods=['POST'])
+def buscarTipos():
+    req_json = request.get_json()
+
+    app.logger.info(req_json)
+
+    results = tipos.find({"operacao": req_json['operacao']})
+
+    json_results = []
+    for result in results:
+        json_results.append(result)
+
+    resp = Response(
+        response=toJson(json_results), status=200, mimetype="application/json")
+
+    return resp
+
 
 @app.route('/buscarCidadesPorEstado', methods=['POST'])
 def buscarCidadesPorEstado():
-	req_json = request.get_json()
+    req_json = request.get_json()
 
-	results = cidades.find({"estado" : req_json['estado']})
+    app.logger.info(req_json)
 
-	json_results = []
-	for result in results:
-		json_results.append(result)
+    results = cidades.find({"estado": req_json['estado']})
 
-	resp = Response(
-		response=toJson(json_results), status=200, mimetype="application/json")
+    json_results = []
+    for result in results:
+        json_results.append(result)
 
-	return resp
+    resp = Response(
+        response=toJson(json_results), status=200, mimetype="application/json")
+
+    return resp
+
 
 @app.route('/buscarBairrosPorEstadoECidade', methods=['POST'])
 def buscarBairrosPorEstadoECidade():
-	req_json = request.get_json()
+    req_json = request.get_json()
 
-	results = bairros.find({"cidade" : req_json['cidade']})
+    app.logger.info(req_json)
 
-	json_results = []
-	for result in results:
-		json_results.append(result)
+    results = bairros.find({"cidade": req_json['cidade']})
 
-	resp = Response(
-		response=toJson(json_results), status=200, mimetype="application/json")
+    json_results = []
+    for result in results:
+        json_results.append(result)
 
-	return resp
+    resp = Response(
+        response=toJson(json_results), status=200, mimetype="application/json")
+
+    return resp
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
